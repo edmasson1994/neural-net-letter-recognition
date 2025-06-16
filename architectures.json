@@ -1,0 +1,24 @@
+{
+  "models": [
+    {
+      "name": "1 Hidden Layer (100 nodes)",
+      "layers": [784, 100, 26],
+      "defaultWeights": "./weights_1_hidden_layer.json"
+    },
+    {
+      "name": "2 Hidden Layers (80, 60 nodes)",
+      "layers": [784, 80, 60, 26],
+      "defaultWeights": "./weights_2_hidden_layers.json"
+    },
+    {
+      "name": "3 Hidden Layers (80, 60, 40 nodes)",
+      "layers": [784, 80, 60, 40, 26],
+      "defaultWeights": "./weights_3_hidden_layers.json"
+    },
+    {
+      "name": "Optimised (64, 32 nodes)",
+      "layers": [784, 64, 32, 26],
+      "defaultWeights": "./weights_gpu.json"
+    }
+  ]
+} 
