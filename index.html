@@ -1,0 +1,555 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" con dtent="width=device-width, initial-scale=1.0">
+    <title>Neural Network Model Comparison</title>
+    <style>
+        :root {
+            --model1-color: #3f51b5; /* Blue */
+            --model2-color: #4caf50; /* Green */
+            --model3-color: #f44336; /* Red */
+        }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            background-color: #f0f2f5;
+            color: #333;
+            margin: 0;
+            padding: 20px;
+        }
+        h1, h2, h3 {
+            color: #1a237e;
+            margin-top: 0;
+            text-align: center;
+        }
+        .main-container {
+            display: flex;
+            gap: 20px;
+            flex-wrap: wrap;
+            justify-content: center;
+            width: 100%;
+            max-width: 1200px;
+        }
+        .canvas-container, .processed-container, .results-container {
+            background-color: #ffffff;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+            flex: 1;
+            min-width: 340px;
+            box-sizing: border-box;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        #drawingCanvas, #processedCanvas {
+            border: 2px solid #333;
+            cursor: crosshair;
+            touch-action: none;
+        }
+        #drawingCanvas { width: 320px; height: 320px; }
+        #processedCanvas { width: 320px; height: 320px; background-color: #000; }
+        .clear-btn-container { margin-top: 20px; }
+        button {
+            padding: 10px 15px;
+            font-size: 16px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            background-color: #1a237e;
+            color: white;
+            transition: background-color 0.3s;
+        }
+        button:hover { background-color: #303f9f; }
+        button:disabled { background-color: #9e9e9e; cursor: not-allowed; }
+
+        /* Prediction Results */
+        #predictionResult { font-size: 1.5em; font-weight: bold; }
+        #confidenceScores {
+            margin-top: 15px;
+            width: 100%;
+            display: flex;
+            gap: 20px; /* Space between the two columns */
+        }
+        .prediction-col {
+            flex: 1;
+            min-width: 0;
+        }
+        .score-letter-group {
+            display: flex;
+            align-items: center;
+            margin-bottom: 5px; /* Increased space between letter groups */
+            height: 21px; /* 3 bars + 2 gaps */
+        }
+        .score-letter-label {
+            font-weight: bold;
+            font-size: 14px;
+            width: 20px;
+            flex-shrink: 0;
+        }
+        .bars-wrapper {
+            flex-grow: 1;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            height: 100%;
+        }
+        .score-bar-container {
+            display: flex;
+            align-items: center;
+            height: 5px; /* Made bars slightly thinner */
+        }
+        .score-bar { flex-grow: 1; height: 100%; background-color: #e0e0e0; border-radius: 3px; }
+        .score-fill { height: 100%; border-radius: 3px; transition: width 0.2s ease-in-out; }
+        .score-fill.model-1 { background-color: var(--model1-color); }
+        .score-fill.model-2 { background-color: var(--model2-color); }
+        .score-fill.model-3 { background-color: var(--model3-color); }
+
+        /* Model Configuration Section */
+        .config-container {
+            display: flex;
+            gap: 20px;
+            justify-content: center;
+            flex-wrap: wrap;
+            width: 100%;
+            max-width: 1200px;
+            margin-top: 20px;
+            padding: 20px;
+            background-color: #ffffff;
+            border-radius: 8px;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+        }
+        .model-slot {
+            flex: 1;
+            min-width: 300px;
+            padding: 15px;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+        }
+        .model-slot h3 { border-bottom: 2px solid; padding-bottom: 5px; }
+        .model-slot:nth-child(1) h3 { border-color: var(--model1-color); }
+        .model-slot:nth-child(2) h3 { border-color: var(--model2-color); }
+        .model-slot:nth-child(3) h3 { border-color: var(--model3-color); }
+        .model-slot label { display: block; margin: 10px 0 5px; font-weight: bold; }
+        .model-slot select, .model-slot button { width: 100%; box-sizing: border-box; }
+        .model-slot select { padding: 8px; font-size: 14px; }
+        .model-slot .status {
+            font-style: italic;
+            font-size: 12px;
+            color: #555;
+            margin-top: 10px;
+            height: 30px;
+        }
+    </style>
+</head>
+<body>
+
+    <h1>Neural Network - Model Comparison</h1>
+
+    <div class="main-container">
+        <!-- Drawing Area -->
+        <div class="canvas-container">
+            <h2>Drawing Pad</h2>
+            <canvas id="drawingCanvas" width="280" height="280"></canvas>
+            <div class="clear-btn-container">
+                <button id="clearBtn">Clear</button>
+            </div>
+        </div>
+
+        <!-- Processed drawing preview -->
+        <div class="processed-container">
+            <h2>Processed (28x28)</h2>
+            <canvas id="processedCanvas" width="28" height="28"></canvas>
+        </div>
+
+        <!-- Results & Confidence -->
+        <div class="results-container">
+            <h2>Predictions</h2>
+            <div id="predictionResult">
+                <span style="color: var(--model1-color);">?</span> |
+                <span style="color: var(--model2-color);">?</span> |
+                <span style="color: var(--model3-color);">?</span>
+            </div>
+            <div id="confidenceScores">
+                <!-- Confidence bars will be generated here -->
+            </div>
+        </div>
+    </div>
+
+    <!-- Model Configuration -->
+    <div class="config-container">
+        <!-- Dynamically generated model slots will go here -->
+    </div>
+    
+    <script src="neural-network.js"></script>
+    <script>
+    // --- CONFIGURATION & CONSTANTS ---
+    const CANVAS_SIZE = 280;
+    const GRID_SIZE = 28;
+    const ALPHABET = "ABCDEFGHIJKLMNOPQRSTUVWXYZ".split('');
+    const NUM_MODELS = 3;
+
+    // --- DOM ELEMENT REFERENCES ---
+    const canvas = document.getElementById('drawingCanvas');
+    const ctx = canvas.getContext('2d');
+    const clearBtn = document.getElementById('clearBtn');
+    const predictionResultDiv = document.getElementById('predictionResult');
+    const confidenceScoresDiv = document.getElementById('confidenceScores');
+    const processedCanvas = document.getElementById('processedCanvas');
+    const pCtx = processedCanvas.getContext('2d');
+    const configContainer = document.querySelector('.config-container');
+
+    // --- APP STATE ---
+    let models = [];
+    let availableArchitectures = [];
+    let animationFrameId = null;
+    let isDrawing = false;
+    let hasDrawn = false;
+
+    // --- INITIALIZATION ---
+    async function initializeApp() {
+        await loadArchitectures();
+        setupModelSlots();
+        setupCanvas();
+        updateConfidenceUI([]); // Initial empty UI
+    }
+
+    async function loadArchitectures() {
+        try {
+            const response = await fetch('architectures.json');
+            if (!response.ok) throw new Error('Failed to load architectures.');
+            const data = await response.json();
+            availableArchitectures = data.models;
+        } catch (error) {
+            console.error(error);
+            configContainer.innerHTML = `<p style="color: red;">Error: Could not load model architectures from architectures.json</p>`;
+        }
+    }
+
+    function setupModelSlots() {
+        for (let i = 0; i < NUM_MODELS; i++) {
+            const modelIndex = i;
+            models[modelIndex] = { nn: null, status: 'Not loaded' };
+
+            const slot = document.createElement('div');
+            slot.className = 'model-slot';
+            slot.innerHTML = `
+                <h3>Model ${modelIndex + 1}</h3>
+                <label for="arch-select-${modelIndex}">Architecture:</label>
+                <select id="arch-select-${modelIndex}">
+                    <option value="">-- Select Architecture --</option>
+                    ${availableArchitectures.map((arch, j) => `<option value="${j}">${arch.name}</option>`).join('')}
+                </select>
+                <button id="load-weights-btn-${modelIndex}" style="margin-top: 10px;">Load Custom Weights</button>
+                <div class="status" id="status-${modelIndex}">Ready.</div>
+            `;
+            configContainer.appendChild(slot);
+
+            const archSelect = slot.querySelector(`#arch-select-${modelIndex}`);
+            const loadButton = slot.querySelector(`#load-weights-btn-${modelIndex}`);
+            
+            archSelect.addEventListener('change', () => handleArchitectureChange(modelIndex, archSelect.value));
+            loadButton.addEventListener('click', () => handleCustomWeights(modelIndex));
+        }
+    }
+    
+    function setupCanvas() {
+        ctx.fillStyle = 'white';
+        ctx.fillRect(0, 0, CANVAS_SIZE, CANVAS_SIZE);
+        ctx.lineWidth = 10;
+        ctx.lineCap = 'round';
+        ctx.strokeStyle = '#000';
+        clearBtn.addEventListener('click', clearCanvas);
+
+        // Drawing listeners
+        canvas.addEventListener('mousedown', startDrawing);
+        canvas.addEventListener('mouseup', stopDrawing);
+        canvas.addEventListener('mouseleave', stopDrawing);
+        canvas.addEventListener('mousemove', draw);
+        canvas.addEventListener('touchstart', startDrawing);
+        canvas.addEventListener('touchend', stopDrawing);
+        canvas.addEventListener('touchmove', draw);
+    }
+    
+    // --- MODEL MANAGEMENT ---
+    async function handleArchitectureChange(modelIndex, archIndex) {
+        const statusDiv = document.getElementById(`status-${modelIndex}`);
+        if (archIndex === "") {
+            models[modelIndex].nn = null;
+            statusDiv.textContent = 'Unloaded.';
+            updateSinglePrediction(modelIndex, null);
+            return;
+        }
+
+        const arch = availableArchitectures[archIndex];
+        // Always create a new network instance with random weights first.
+        models[modelIndex].nn = new NeuralNetwork(arch.layers);
+        statusDiv.textContent = `Initialized ${arch.name}. Loading default weights...`;
+
+        try {
+            const response = await fetch(arch.defaultWeights);
+            if (!response.ok) throw new Error(`Default weights not found (status: ${response.status})`);
+            const weightsData = await response.json();
+            
+            models[modelIndex].nn.loadWeights(weightsData);
+            statusDiv.textContent = `Loaded default weights for ${arch.name}.`;
+        } catch (error) {
+            // If default weights fail, keep the randomly initialized network.
+            statusDiv.textContent = `Default weights not found. Ready for custom weights.`;
+            console.warn(`Model ${modelIndex+1} Warning: ${error.message}`);
+        }
+    }
+    
+    function handleCustomWeights(modelIndex) {
+        const statusDiv = document.getElementById(`status-${modelIndex}`);
+        const currentNN = models[modelIndex].nn;
+
+        if (!currentNN) {
+            statusDiv.textContent = 'Please select an architecture first!';
+            return;
+        }
+        
+        const fileInput = document.createElement('input');
+        fileInput.type = 'file';
+        fileInput.accept = '.json';
+        fileInput.onchange = e => {
+            const file = e.target.files[0];
+            if (!file) return;
+            
+            const reader = new FileReader();
+            reader.onload = function(event) {
+                try {
+                    const data = JSON.parse(event.target.result);
+                    currentNN.loadWeights(data); // The method in the class handles validation
+                    statusDiv.textContent = `Loaded weights from ${file.name}.`;
+                    predictionLoop();
+                } catch (error) {
+                    statusDiv.textContent = `Error: ${error.message}`;
+                    console.error(`Model ${modelIndex} weight loading error:`, error);
+                }
+            };
+            reader.readAsText(file);
+        };
+        fileInput.click();
+    }
+
+    // --- DRAWING & PREDICTION ---
+    function startDrawing(e) {
+        isDrawing = true;
+        hasDrawn = true;
+        const pos = getMousePos(e);
+        ctx.beginPath();
+        ctx.moveTo(pos.x, pos.y);
+        if (!animationFrameId) {
+            predictionLoop();
+        }
+    }
+
+    function stopDrawing() { isDrawing = false; }
+
+    function draw(e) {
+        if (!isDrawing) return;
+        e.preventDefault();
+        const pos = getMousePos(e);
+        ctx.lineTo(pos.x, pos.y);
+        ctx.stroke();
+    }
+
+    function getMousePos(e) {
+        const rect = canvas.getBoundingClientRect();
+        const scaleX = canvas.width / rect.width;
+        const scaleY = canvas.height / rect.height;
+        const clientX = e.clientX || e.touches[0].clientX;
+        const clientY = e.clientY || e.touches[0].clientY;
+        return {
+            x: (clientX - rect.left) * scaleX,
+            y: (clientY - rect.top) * scaleY
+        };
+    }
+
+    function clearCanvas() {
+        ctx.fillStyle = 'white';
+        ctx.fillRect(0, 0, CANVAS_SIZE, CANVAS_SIZE);
+        ctx.beginPath(); // Reset drawing path
+        pCtx.clearRect(0, 0, GRID_SIZE, GRID_SIZE);
+        hasDrawn = false;
+        updateConfidenceUI([]);
+        for (let i = 0; i < NUM_MODELS; i++) {
+            updateSinglePrediction(i, null);
+        }
+    }
+
+    // --- DATA PREPROCESSING & UI UPDATES ---
+    function predictionLoop() {
+        if (hasDrawn) {
+            const inputs = preprocessCanvas();
+            drawProcessedImage(inputs);
+
+            const allPredictions = [];
+            for (let i = 0; i < NUM_MODELS; i++) {
+                if (models[i].nn) {
+                    const predictions = models[i].nn.predict(inputs);
+                    allPredictions[i] = predictions;
+                    updateSinglePrediction(i, predictions);
+                } else {
+                    allPredictions[i] = [];
+                }
+            }
+            updateConfidenceUI(allPredictions);
+        }
+
+        if (isDrawing) {
+            animationFrameId = requestAnimationFrame(predictionLoop);
+        } else {
+            animationFrameId = null;
+        }
+    }
+    
+    function preprocessCanvas() {
+        // This function is adapted from the original working version.
+        // It finds the bounding box of the ink, scales it to 20px, centers it
+        // on a 28x28 canvas, and inverts the colors for the network.
+
+        const fullImageData = ctx.getImageData(0, 0, CANVAS_SIZE, CANVAS_SIZE).data;
+
+        // Determine bounding box of the ink
+        let minX = CANVAS_SIZE, minY = CANVAS_SIZE, maxX = 0, maxY = 0;
+        const threshold = 200; // anything darker than this counts as ink
+
+        for (let y = 0; y < CANVAS_SIZE; y++) {
+            for (let x = 0; x < CANVAS_SIZE; x++) {
+                const idx = (y * CANVAS_SIZE + x) * 4;
+                const avg = (fullImageData[idx] + fullImageData[idx + 1] + fullImageData[idx + 2]) / 3;
+                if (avg < threshold) {
+                    minX = Math.min(minX, x);
+                    maxX = Math.max(maxX, x);
+                    minY = Math.min(minY, y);
+                    maxY = Math.max(maxY, y);
+                }
+            }
+        }
+
+        // If no ink is detected, return a blank input.
+        if (minX >= maxX || minY >= maxY) {
+            return new Array(GRID_SIZE * GRID_SIZE).fill(0);
+        }
+
+        const bboxWidth = maxX - minX;
+        const bboxHeight = maxY - minY;
+        const desiredMax = 20; // Scale to fit in a 20x20 box, like MNIST
+        const scale = desiredMax / Math.max(bboxWidth, bboxHeight);
+        const destWidth = Math.round(bboxWidth * scale);
+        const destHeight = Math.round(bboxHeight * scale);
+
+        // Temp canvas for the cropped letter
+        const letterCanvas = document.createElement('canvas');
+        letterCanvas.width = destWidth;
+        letterCanvas.height = destHeight;
+        const lCtx = letterCanvas.getContext('2d');
+        lCtx.drawImage(canvas, minX, minY, bboxWidth, bboxHeight, 0, 0, destWidth, destHeight);
+
+        // Final 28x28 canvas for the network input
+        const finalCanvas = document.createElement('canvas');
+        finalCanvas.width = GRID_SIZE;
+        finalCanvas.height = GRID_SIZE;
+        const fCtx = finalCanvas.getContext('2d');
+        fCtx.fillStyle = 'black'; // Black background
+        fCtx.fillRect(0, 0, GRID_SIZE, GRID_SIZE);
+        const dx = Math.round((GRID_SIZE - destWidth) / 2);
+        const dy = Math.round((GRID_SIZE - destHeight) / 2);
+        fCtx.filter = 'invert(1)'; // Invert the letter (black ink to white)
+        fCtx.drawImage(letterCanvas, 0, 0, destWidth, destHeight, dx, dy, destWidth, destHeight);
+
+        // Extract pixel data and normalize
+        const finalData = fCtx.getImageData(0, 0, GRID_SIZE, GRID_SIZE).data;
+        const inputs = [];
+        for (let i = 0; i < finalData.length; i += 4) {
+            // Use the red channel from the black-and-white inverted image
+            inputs.push(finalData[i] / 255);
+        }
+        return inputs;
+    }
+    
+    function drawProcessedImage(inputs) {
+        if (!inputs || inputs.length === 0) {
+            pCtx.clearRect(0, 0, GRID_SIZE, GRID_SIZE);
+            return;
+        }
+        const imgData = pCtx.createImageData(GRID_SIZE, GRID_SIZE);
+        for (let i = 0; i < inputs.length; i++) {
+            const val = inputs[i] * 255;
+            imgData.data[i * 4] = val;
+            imgData.data[i * 4 + 1] = val;
+            imgData.data[i * 4 + 2] = val;
+            imgData.data[i * 4 + 3] = 255;
+        }
+        pCtx.putImageData(imgData, 0, 0);
+    }
+    
+    function updateSinglePrediction(modelIndex, predictions) {
+        const span = predictionResultDiv.querySelectorAll('span')[modelIndex];
+        if (!predictions || predictions.length === 0) {
+            span.textContent = `?`;
+            return;
+        }
+        const maxConfidence = Math.max(...predictions);
+        const predictedIndex = predictions.indexOf(maxConfidence);
+        const predictedLetter = ALPHABET[predictedIndex];
+        span.textContent = `${predictedLetter}`;
+    }
+
+    function updateConfidenceUI(allPredictions) {
+        confidenceScoresDiv.innerHTML = `
+            <div class="prediction-col"></div>
+            <div class="prediction-col"></div>
+        `;
+        const cols = confidenceScoresDiv.querySelectorAll('.prediction-col');
+        const midPoint = Math.ceil(ALPHABET.length / 2);
+
+        const processColumn = (alphabet, colElement) => {
+            alphabet.forEach(letter => {
+                const index = ALPHABET.indexOf(letter);
+                const letterGroup = document.createElement('div');
+                letterGroup.className = 'score-letter-group';
+
+                let barsHtml = '';
+                for (let i = 0; i < NUM_MODELS; i++) {
+                    const score = allPredictions[i] ? (allPredictions[i][index] || 0) : 0;
+                    const percentage = score * 100;
+                    
+                    barsHtml += `
+                        <div class="score-bar-container">
+                            <div class="score-bar">
+                                <div class="score-fill model-${i+1}" style="width: ${percentage}%;"></div>
+                            </div>
+                        </div>
+                    `;
+                }
+
+                letterGroup.innerHTML = `
+                    <div class="score-letter-label">${letter}</div>
+                    <div class="bars-wrapper">${barsHtml}</div>
+                `;
+                colElement.appendChild(letterGroup);
+            });
+        };
+        
+        if (allPredictions.length === 0) {
+            // If no predictions, just draw the empty structure
+            processColumn(ALPHABET.slice(0, midPoint), cols[0]);
+            processColumn(ALPHABET.slice(midPoint), cols[1]);
+        } else {
+            processColumn(ALPHABET.slice(0, midPoint), cols[0]);
+            processColumn(ALPHABET.slice(midPoint), cols[1]);
+        }
+    }
+
+    // --- START ---
+    initializeApp();
+
+    </script>
+</body>
+</html>
